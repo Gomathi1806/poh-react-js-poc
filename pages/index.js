@@ -3,6 +3,8 @@ import { useEffect, useState, useRef } from 'react'
 import { ethers } from 'ethers'
 import { hasEthereum } from '../utils/ethereum'
 import Greeter from '../src/artifacts/contracts/Greeter.sol/Greeter.json'
+import TripDetail from '../src/artifacts/contracts/TripDetails.sol/TripDetails.json'
+
 
 export default function Home() {
   const [greeting, setGreetingState] = useState('')
@@ -10,6 +12,11 @@ export default function Home() {
   const [newGreetingMessage, setNewGreetingMessageState] = useState('')
   const [connectedWalletAddress, setConnectedWalletAddressState] = useState('')
   const newGreetingInputRef = useRef();
+
+  const [tripDetail, setTripDetailState] = useState('')
+  const [newTripDetail, setNewTripDetailState] = useState('')
+  const [newTripDetails, setNewTripDetailsState] = useState('')
+  const newTripDetailRef = useRef();
 
   // If wallet is already connected...
   useEffect( () => {
@@ -52,7 +59,47 @@ export default function Home() {
     }
   }
 
+    // Call smart contract, fetch current value
+    async function fetchTripDetails() {
+      if ( ! hasEthereum() ) {
+        setConnectedWalletAddressState(`MetaMask unavailable`)
+        return
+      }
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const contract = new ethers.Contract(process.env.NEXT_PUBLIC_GREETER_ADDRESS, Greeter.abi, provider)
+      try {
+        const data = await contract.greet()
+        setGreetingState(data)
+      } catch(error) {
+        console.log(error)
+      }
+    }
+
   // Call smart contract, set new value
+  async function setTripDetails() {
+    if ( ! hasEthereum() ) {
+      setConnectedWalletAddressState(`MetaMask unavailable`)
+      return
+    }
+    if(! newGreeting ) {
+      setNewGreetingMessageState('Add a new greeting first.')
+      return
+    }
+    await requestAccount()
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const signer = provider.getSigner()
+    const signerAddress = await signer.getAddress()
+    setConnectedWalletAddressState(`Connected wallet: ${signerAddress}`)
+    const contract = new ethers.Contract(process.env.NEXT_PUBLIC_GREETER_ADDRESS, Greeter.abi, signer)
+    const transaction = await contract.setGreeting(newGreeting)
+    await transaction.wait()
+    setNewGreetingMessageState(`Greeting updated to ${newGreeting} from ${greeting}.`)
+    newGreetingInputRef.current.value = ''
+    setNewGreetingState('')
+  }
+
+
+    // Call smart contract, set new value
   async function setGreeting() {
     if ( ! hasEthereum() ) {
       setConnectedWalletAddressState(`MetaMask unavailable`)
@@ -124,6 +171,58 @@ export default function Home() {
                     </button>
                     <div className="h-2">
                       { newGreetingMessage && <span className="text-sm text-gray-500 italic">{newGreetingMessage}</span> }
+                    </div>
+                  </div>
+                </div>
+                <div className="h-4">
+                  { connectedWalletAddress && <p className="text-md">{connectedWalletAddress}</p> }
+                </div>
+            </div>
+          </>
+        ) }
+      </main>
+
+      <main className="space-y-8">
+        { ! process.env.NEXT_PUBLIC_GREETER_ADDRESS ? (
+            <p className="text-md">
+              Please add a value to the <pre>NEXT_PUBLIC_GREETER_ADDRESS</pre> environment variable.
+            </p>
+        ) : (
+          <>
+            <h1 className="text-4xl font-semibold mb-8">
+              Trip Details
+            </h1>
+            <div className="space-y-8">
+                <div className="flex flex-col space-y-4">
+                  <input
+                    className="border p-4 w-100 text-center"
+                    placeholder="A fetched Trip Detail will show here"
+                    value={tripDetail}
+                    disabled
+                  />
+                  <button
+                      className="bg-blue-600 hover:bg-blue-700 text-white py-4 px-8 rounded-md w-full"
+                      onClick={fetchTripDetails}
+                    >
+                      Fetch Trip Detail from the blockchain
+                    </button>
+                </div>
+                <div className="space-y-8">
+                  <div className="flex flex-col space-y-4">
+                    <input
+                      className="border p-4 text-center"
+                      onChange={ e => setNewTripDetailsState(e.target.value)}
+                      placeholder="Enter the Trip Details"
+                      ref={newTripDetailRef}
+                    />
+                    <button
+                      className="bg-blue-600 hover:bg-blue-700 text-white py-4 px-8 rounded-md"
+                      onClick={setTripDetails}
+                    >
+                      Set new Trip Details on the blockchain
+                    </button>
+                    <div className="h-2">
+                      { newTripDetails && <span className="text-sm text-gray-500 italic">{newTripDetails}</span> }
                     </div>
                   </div>
                 </div>
